@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -21,6 +22,13 @@ type FormData = z.infer<typeof schema>
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get('erro') === 'nao_autorizado') {
+      toast.error('Este e-mail não está autorizado a acessar o app.')
+    }
+  }, [searchParams])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
