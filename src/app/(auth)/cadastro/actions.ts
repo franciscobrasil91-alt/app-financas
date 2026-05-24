@@ -1,25 +1,28 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function cadastrarUsuario(data: {
   nome: string
   email: string
   senha: string
 }) {
-  const supabase = createClient()
+  const email = data.email.toLowerCase().trim()
 
-  // Verifica se o e-mail está na lista de permitidos
-  const { data: permitido } = await supabase
+  // Usa o client admin para garantir que o RLS não bloqueie a verificação
+  const admin = createAdminClient()
+  const { data: permitido } = await admin
     .from('usuarios_permitidos')
     .select('email')
-    .eq('email', data.email.toLowerCase().trim())
+    .eq('email', email)
     .maybeSingle()
 
   if (!permitido) {
     return { error: 'Este e-mail não está autorizado. Entre em contato com o administrador.' }
   }
 
-  // Cria a conta
+  // Cria a conta via client normal
+  const supabase = createClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const { error } = await supabase.auth.signUp({
     email: data.email,
