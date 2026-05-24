@@ -54,10 +54,10 @@ export default async function CartaoPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <MonthSelector mesAtual={mesRef} />
           {cartoes.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="flex items-center gap-2">
               <ExportarFaturasDialog />
               <LancamentoLoteDialog cartoes={cartoes} categorias={categorias} />
               <LancamentoForm cartoes={cartoes} categorias={categorias} />
