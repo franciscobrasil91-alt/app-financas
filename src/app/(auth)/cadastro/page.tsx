@@ -56,12 +56,12 @@ export default function CadastroPage() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <div className="bg-green-100 rounded-full p-3">
-            <PiggyBank className="h-8 w-8 text-green-600" />
+          <div className="bg-primary rounded-xl p-3">
+            <span className="text-2xl font-bold font-serif text-primary-foreground">A</span>
           </div>
         </div>
-        <CardTitle className="text-2xl">Criar conta</CardTitle>
-        <CardDescription>Comece a controlar suas finanças hoje</CardDescription>
+        <CardTitle className="text-2xl font-serif">Aruna Personal</CardTitle>
+        <CardDescription>Organize hoje. Construa o amanhã.</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit(onSubmit)}>

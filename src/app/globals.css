@@ -4,67 +4,67 @@
 
 @layer base {
   :root {
-    /* ── Fundo: branco levemente aquecido ── */
-    --background: 40 20% 98%;
-    --foreground: 25 20% 14%;
+    /* ── Background: bege Aruna ── */
+    --background: 37 25% 94%;        /* #F2EDE4 */
+    --foreground: 158 35% 8%;        /* #0E1D18 verde escuro */
 
-    /* ── Cards ── */
+    /* ── Cards: branco quente ── */
     --card: 0 0% 100%;
-    --card-foreground: 25 20% 14%;
+    --card-foreground: 158 35% 8%;
 
     /* ── Popover ── */
     --popover: 0 0% 100%;
-    --popover-foreground: 25 20% 14%;
+    --popover-foreground: 158 35% 8%;
 
-    /* ── Principal: verde esmeralda ── */
-    --primary: 158 76% 36%;
-    --primary-foreground: 0 0% 100%;
+    /* ── Primary: verde escuro Aruna ── */
+    --primary: 158 35% 8%;           /* #0E1D18 */
+    --primary-foreground: 37 28% 90%;
 
-    /* ── Secundário: bege-creme suave ── */
-    --secondary: 38 25% 94%;
-    --secondary-foreground: 25 20% 20%;
+    /* ── Secondary: bege Aruna ── */
+    --secondary: 37 28% 90%;         /* #EDE7DD */
+    --secondary-foreground: 158 35% 8%;
 
-    /* ── Muted: cinza-quente suave ── */
-    --muted: 35 18% 94%;
-    --muted-foreground: 25 12% 46%;
+    /* ── Muted ── */
+    --muted: 37 20% 91%;
+    --muted-foreground: 207 3% 43%;  /* #6B6F72 */
 
-    /* ── Accent ── */
-    --accent: 158 30% 92%;
-    --accent-foreground: 158 76% 28%;
+    /* ── Accent: dourado Aruna ── */
+    --accent: 37 51% 57%;            /* #C9A15A */
+    --accent-foreground: 0 0% 100%;
 
     /* ── Destrutivo ── */
     --destructive: 4 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Bordas e inputs: quentes ── */
-    --border: 35 18% 88%;
-    --input: 35 18% 88%;
-    --ring: 158 76% 36%;
+    /* ── Bordas ── */
+    --border: 37 18% 83%;
+    --input: 37 18% 83%;
+    --ring: 37 51% 57%;              /* dourado */
 
-    /* ── Border radius: mais arredondado e amigável ── */
+    /* ── Radius ── */
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 40 15% 92%;
-    --card: 220 20% 13%;
-    --card-foreground: 40 15% 92%;
-    --popover: 220 20% 13%;
-    --popover-foreground: 40 15% 92%;
-    --primary: 158 72% 42%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 18% 18%;
-    --secondary-foreground: 40 15% 85%;
-    --muted: 220 18% 18%;
-    --muted-foreground: 220 10% 58%;
-    --accent: 220 18% 20%;
-    --accent-foreground: 40 15% 90%;
+    --background: 158 35% 6%;
+    --foreground: 37 25% 92%;
+    --card: 158 30% 9%;
+    --card-foreground: 37 25% 92%;
+    --popover: 158 30% 9%;
+    --popover-foreground: 37 25% 92%;
+    --primary: 37 51% 57%;
+    --primary-foreground: 158 35% 8%;
+    --secondary: 158 25% 14%;
+    --secondary-foreground: 37 25% 85%;
+    --muted: 158 25% 14%;
+    --muted-foreground: 37 15% 58%;
+    --accent: 37 45% 50%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 4 72% 52%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 18% 22%;
-    --input: 220 18% 22%;
-    --ring: 158 72% 42%;
+    --border: 158 25% 18%;
+    --input: 158 25% 18%;
+    --ring: 37 51% 57%;
   }
 }
 
@@ -80,11 +80,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  /* Títulos usam Lora */
+  h1, h2, h3 {
+    font-family: var(--font-lora), Georgia, serif;
     @apply font-semibold tracking-tight;
   }
 
-  /* Textos de valor monetário ficam ligeiramente mais espaçados */
+  h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
   .tabular-nums {
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
@@ -106,7 +111,6 @@
   @apply bg-muted-foreground/40;
 }
 
-/* ── Transição suave nos interativos ── */
 @layer base {
   button, a, [role="button"] {
     @apply transition-colors duration-150;

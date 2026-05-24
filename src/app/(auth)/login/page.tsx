@@ -71,11 +71,11 @@ export default function LoginPage() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <div className="bg-green-100 rounded-full p-3">
-            <PiggyBank className="h-8 w-8 text-green-600" />
+          <div className="bg-primary rounded-xl p-3">
+            <span className="text-2xl font-bold font-serif text-primary-foreground">A</span>
           </div>
         </div>
-        <CardTitle className="text-2xl">Finanças Pessoais</CardTitle>
+        <CardTitle className="text-2xl font-serif">Aruna Personal</CardTitle>
         <CardDescription>Entre na sua conta para continuar</CardDescription>
       </CardHeader>
 
