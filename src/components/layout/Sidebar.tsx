@@ -50,13 +50,13 @@ export function Sidebar({ email, isAdmin }: SidebarProps) {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-14 items-center px-5 border-b border-border gap-2.5">
+      <Link href="/sobre" onClick={() => setMobileOpen(false)} className="flex h-14 items-center px-5 border-b border-border gap-2.5 hover:bg-muted/50 transition-colors">
         <img src="/icon-192.png" alt="Aruna Personal" className="h-7 w-7 rounded-md shrink-0 object-cover" />
         <div className="leading-tight">
           <span className="font-serif font-semibold text-foreground tracking-tight text-base">Aruna</span>
           <span className="text-xs text-muted-foreground ml-1.5 font-sans">Personal</span>
         </div>
-      </div>
+      </Link>
 
       {/* Atalho rápido */}
       <div className="px-3 pt-3">
