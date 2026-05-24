@@ -14,7 +14,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar email={user.email} />
+      <Sidebar email={user.email} isAdmin={user.email === process.env.ADMIN_EMAIL} />
 
       {/* Main content — offset sidebar on desktop, top bar on mobile */}
       <main className="lg:pl-64">

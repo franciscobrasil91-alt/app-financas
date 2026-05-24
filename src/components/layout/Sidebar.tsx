@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, CreditCard, Receipt, TrendingUp, PiggyBank,
-  Wallet, Tag, LogOut, Menu, X, ChevronDown, CheckSquare
+  Wallet, Tag, LogOut, Menu, X, ChevronDown, CheckSquare, Shield
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -28,9 +28,10 @@ const cadastroItems = [
 
 interface SidebarProps {
   email?: string
+  isAdmin?: boolean
 }
 
-export function Sidebar({ email }: SidebarProps) {
+export function Sidebar({ email, isAdmin }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [cadastrosOpen, setCadastrosOpen] = useState(
@@ -125,6 +126,21 @@ export function Sidebar({ email }: SidebarProps) {
           </div>
           <span className="text-muted-foreground text-xs truncate flex-1">{email}</span>
         </div>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors mb-1',
+              pathname === '/admin'
+                ? 'bg-indigo-50 text-indigo-600 font-medium'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Controle de Acesso
+          </Link>
+        )}
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
