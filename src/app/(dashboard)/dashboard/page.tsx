@@ -5,15 +5,30 @@ import { SummaryCards } from '@/components/dashboard/SummaryCards'
 import { ProjecaoChart } from '@/components/dashboard/ProjecaoChart'
 import { RelatorioDialog } from '@/components/dashboard/RelatorioDialog'
 import { MiniChecklist } from '@/components/dashboard/MiniChecklist'
+import { createClient } from '@/lib/supabase/server'
 
 interface PageProps {
   searchParams: { mes?: string }
+}
+
+function saudacao() {
+  const hora = new Date().getHours()
+  if (hora < 12) return 'Bom dia'
+  if (hora < 18) return 'Boa tarde'
+  return 'Boa noite'
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const mesRef = searchParams.mes
     ? parseInt(searchParams.mes)
     : mesRefPadrao()
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const nome = (user?.user_metadata?.nome as string | undefined)
+    ?? user?.email?.split('@')[0]
+    ?? 'você'
+  const primeiroNome = nome.split(' ')[0]
 
   const [summary, projecao] = await Promise.all([
     getDashboardData(mesRef),
@@ -36,7 +51,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+        <div>
+          <p className="text-sm text-muted-foreground">{saudacao()},</p>
+          <h1 className="text-xl font-serif font-semibold text-foreground">{primeiroNome} 👋</h1>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <RelatorioDialog />
           <MonthSelector mesAtual={mesRef} />

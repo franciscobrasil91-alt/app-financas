@@ -6,6 +6,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
 const secoes = [
   {
@@ -79,7 +80,14 @@ const passos = [
   },
 ]
 
-export default function SobrePage() {
+export default async function SobrePage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const nome = (user?.user_metadata?.nome as string | undefined)
+    ?? user?.email?.split('@')[0]
+    ?? 'você'
+  const primeiroNome = nome.split(' ')[0]
+
   const whatsappUrl = 'https://wa.me/5531986944772?text=Olá%20Francisco,%20tenho%20uma%20dúvida%20sobre%20o%20Aruna%20Personal!'
 
   return (
@@ -97,10 +105,10 @@ export default function SobrePage() {
           </div>
           <div>
             <h1 className="text-3xl font-serif font-semibold text-foreground">
-              Bem-vindo ao Aruna Personal
+              Olá, {primeiroNome}! 👋
             </h1>
             <p className="mt-2 text-muted-foreground text-base max-w-md mx-auto">
-              Seu app de finanças pessoais. Organize suas receitas, despesas e reservas em um só lugar.
+              Bem-vindo ao Aruna Personal — seu app de finanças pessoais. Organize suas receitas, despesas e reservas em um só lugar.
             </p>
           </div>
           <Link href="/dashboard">

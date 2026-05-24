@@ -12,9 +12,11 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
+  const nome = (user.user_metadata?.nome as string | undefined) ?? user.email?.split('@')[0] ?? 'você'
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar email={user.email} isAdmin={user.email === process.env.ADMIN_EMAIL} />
+      <Sidebar email={user.email} nome={nome} isAdmin={user.email === process.env.ADMIN_EMAIL} />
 
       {/* Main content — offset sidebar on desktop, top bar on mobile */}
       <main className="lg:pl-64">

@@ -28,10 +28,11 @@ const cadastroItems = [
 
 interface SidebarProps {
   email?: string
+  nome?: string
   isAdmin?: boolean
 }
 
-export function Sidebar({ email, isAdmin }: SidebarProps) {
+export function Sidebar({ email, nome, isAdmin }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [cadastrosOpen, setCadastrosOpen] = useState(
@@ -125,9 +126,12 @@ export function Sidebar({ email, isAdmin }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2.5 mb-2 px-1">
           <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold shrink-0">
-            {email?.[0]?.toUpperCase() ?? 'U'}
+            {nome?.[0]?.toUpperCase() ?? email?.[0]?.toUpperCase() ?? 'U'}
           </div>
-          <span className="text-muted-foreground text-xs truncate flex-1">{email}</span>
+          <div className="flex flex-col min-w-0">
+            {nome && <span className="text-foreground text-xs font-medium truncate">{nome}</span>}
+            <span className="text-muted-foreground text-xs truncate">{email}</span>
+          </div>
         </div>
         {isAdmin && (
           <Link
