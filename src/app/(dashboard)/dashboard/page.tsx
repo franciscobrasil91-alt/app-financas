@@ -34,10 +34,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
 
-      {/* Header — compacto, sem subtítulo */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <RelatorioDialog />
           <MonthSelector mesAtual={mesRef} />
         </div>
