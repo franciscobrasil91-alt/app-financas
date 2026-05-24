@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Fundo: branco levemente aquecido ── */
+    --background: 40 20% 98%;
+    --foreground: 25 20% 14%;
+
+    /* ── Cards ── */
+    --card: 0 0% 100%;
+    --card-foreground: 25 20% 14%;
+
+    /* ── Popover ── */
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 20% 14%;
+
+    /* ── Principal: verde esmeralda ── */
+    --primary: 158 76% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    /* ── Secundário: bege-creme suave ── */
+    --secondary: 38 25% 94%;
+    --secondary-foreground: 25 20% 20%;
+
+    /* ── Muted: cinza-quente suave ── */
+    --muted: 35 18% 94%;
+    --muted-foreground: 25 12% 46%;
+
+    /* ── Accent ── */
+    --accent: 158 30% 92%;
+    --accent-foreground: 158 76% 28%;
+
+    /* ── Destrutivo ── */
+    --destructive: 4 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Bordas e inputs: quentes ── */
+    --border: 35 18% 88%;
+    --input: 35 18% 88%;
+    --ring: 158 76% 36%;
+
+    /* ── Border radius: mais arredondado e amigável ── */
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 220 20% 10%;
+    --foreground: 40 15% 92%;
+    --card: 220 20% 13%;
+    --card-foreground: 40 15% 92%;
+    --popover: 220 20% 13%;
+    --popover-foreground: 40 15% 92%;
+    --primary: 158 72% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 18% 18%;
+    --secondary-foreground: 40 15% 85%;
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 10% 58%;
+    --accent: 220 18% 20%;
+    --accent-foreground: 40 15% 90%;
+    --destructive: 4 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 18% 22%;
+    --input: 220 18% 22%;
+    --ring: 158 72% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Textos de valor monetário ficam ligeiramente mais espaçados */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ── Scrollbar personalizada ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/25 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* ── Transição suave nos interativos ── */
+@layer base {
+  button, a, [role="button"] {
+    @apply transition-colors duration-150;
+  }
+}
