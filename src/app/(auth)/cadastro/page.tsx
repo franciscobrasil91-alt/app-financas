@@ -7,11 +7,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { PiggyBank, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { cadastrarUsuario } from './actions'
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
@@ -35,19 +35,15 @@ export default function CadastroPage() {
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    const supabase = createClient()
 
-    const { error } = await supabase.auth.signUp({
+    const result = await cadastrarUsuario({
+      nome: data.nome,
       email: data.email,
-      password: data.senha,
-      options: {
-        data: { nome: data.nome },
-        emailRedirectTo: `${location.origin}/api/auth/callback`,
-      },
+      senha: data.senha,
     })
 
-    if (error) {
-      toast.error(error.message)
+    if (result?.error) {
+      toast.error(result.error)
       setLoading(false)
       return
     }
