@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { PiggyBank, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -20,15 +20,19 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function LoginPage() {
-  const [loading, setLoading] = useState(false)
+// Componente separado para usar useSearchParams (requer Suspense)
+function ErroParam() {
   const searchParams = useSearchParams()
-
   useEffect(() => {
     if (searchParams.get('erro') === 'nao_autorizado') {
       toast.error('Este e-mail não está autorizado a acessar o app.')
     }
   }, [searchParams])
+  return null
+}
+
+function LoginForm() {
+  const [loading, setLoading] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -61,7 +65,6 @@ export default function LoginPage() {
     }
 
     toast.success('Login realizado! Redirecionando...')
-    // Pequeno delay para garantir que o cookie foi gravado antes do redirect
     setTimeout(() => {
       window.location.replace('/dashboard')
     }, 300)
@@ -120,5 +123,16 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <>
+      <Suspense>
+        <ErroParam />
+      </Suspense>
+      <LoginForm />
+    </>
   )
 }
