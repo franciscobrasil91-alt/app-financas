@@ -56,9 +56,7 @@ export default function CadastroPage() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <div className="bg-primary rounded-xl p-3">
-            <span className="text-2xl font-bold font-serif text-primary-foreground">A</span>
-          </div>
+          <img src="/icon-192.png" alt="Aruna Personal" className="h-16 w-16 rounded-2xl object-cover" />
         </div>
         <CardTitle className="text-2xl font-serif">Aruna Personal</CardTitle>
         <CardDescription>Organize hoje. Construa o amanhã.</CardDescription>

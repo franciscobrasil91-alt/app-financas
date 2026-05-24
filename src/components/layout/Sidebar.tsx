@@ -51,9 +51,7 @@ export function Sidebar({ email, isAdmin }: SidebarProps) {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex h-14 items-center px-5 border-b border-border gap-2.5">
-        <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <span className="text-xs font-bold text-primary-foreground">A</span>
-        </div>
+        <img src="/icon-192.png" alt="Aruna Personal" className="h-7 w-7 rounded-md shrink-0 object-cover" />
         <div className="leading-tight">
           <span className="font-serif font-semibold text-foreground tracking-tight text-base">Aruna</span>
           <span className="text-xs text-muted-foreground ml-1.5 font-sans">Personal</span>
@@ -172,9 +170,7 @@ export function Sidebar({ email, isAdmin }: SidebarProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <span className="text-xs font-bold text-primary-foreground">A</span>
-        </div>
+        <img src="/icon-192.png" alt="Aruna Personal" className="h-6 w-6 rounded-md shrink-0 object-cover" />
         <span className="font-serif font-semibold text-foreground text-sm">Aruna Personal</span>
       </div>
 
