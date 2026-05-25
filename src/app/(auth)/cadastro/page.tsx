@@ -48,7 +48,7 @@ export default function CadastroPage() {
       return
     }
 
-    toast.success('Conta criada! Verifique seu e-mail para confirmar.')
+    toast.success('Conta criada com sucesso! Faça login para continuar.')
     router.push('/login')
   }
 

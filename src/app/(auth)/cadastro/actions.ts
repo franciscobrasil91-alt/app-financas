@@ -21,18 +21,19 @@ export async function cadastrarUsuario(data: {
     return { error: 'Este e-mail não está autorizado. Entre em contato com o administrador.' }
   }
 
-  // Cria a conta via client normal
-  const supabase = createClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const { error } = await supabase.auth.signUp({
+  // Usa o client admin para criar o usuário mesmo com signups desativados
+  const { error } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.senha,
-    options: {
-      data: { nome: data.nome },
-      emailRedirectTo: `${siteUrl}/api/auth/callback`,
-    },
+    user_metadata: { nome: data.nome },
+    email_confirm: true, // e-mail já foi validado pela whitelist, não precisa de confirmação
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    if (error.message.includes('already registered') || error.message.includes('already exists')) {
+      return { error: 'Este e-mail já possui uma conta cadastrada.' }
+    }
+    return { error: error.message }
+  }
   return { success: true }
 }
