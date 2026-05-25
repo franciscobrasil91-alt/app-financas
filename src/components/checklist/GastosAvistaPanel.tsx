@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react'
-import { Plus, Trash2, Loader2, ShoppingBag, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, Loader2, ShoppingBag, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -136,7 +136,9 @@ export function GastosAvistaPanel({
   const gastosNaoIdentificados = temSaldoInicial && temSaldoHoje
     ? saldoEsperado - saldoHoje!
     : null
-  const tudoOk = gastosNaoIdentificados !== null && gastosNaoIdentificados <= 0
+  const tudoOk = gastosNaoIdentificados !== null && gastosNaoIdentificados === 0
+  const gastouSemRegistrar = gastosNaoIdentificados !== null && gastosNaoIdentificados > 0
+  const recebeuSemRegistrar = gastosNaoIdentificados !== null && gastosNaoIdentificados < 0
 
   function formatData(d: string) {
     const [, m, day] = d.split('-')
@@ -208,37 +210,41 @@ export function GastosAvistaPanel({
         {gastosNaoIdentificados !== null && (
           <div className={cn(
             'rounded-xl border p-4',
-            tudoOk
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-amber-50 border-amber-200'
+            tudoOk          ? 'bg-emerald-50 border-emerald-200'
+            : gastouSemRegistrar ? 'bg-amber-50 border-amber-200'
+            : 'bg-blue-50 border-blue-200'
           )}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   {tudoOk
                     ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                    : <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                    : gastouSemRegistrar
+                    ? <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                    : <TrendingUp className="h-4 w-4 text-blue-500 shrink-0" />
                   }
                   <p className={cn(
                     'text-xs font-semibold uppercase tracking-wide',
-                    tudoOk ? 'text-emerald-600' : 'text-amber-600'
+                    tudoOk ? 'text-emerald-600' : gastouSemRegistrar ? 'text-amber-600' : 'text-blue-600'
                   )}>
-                    {tudoOk ? 'Tudo registrado' : 'Gastos não identificados'}
+                    {tudoOk ? 'Tudo registrado' : gastouSemRegistrar ? 'Gastos não identificados' : 'Receita não identificada'}
                   </p>
                 </div>
                 <p className={cn(
                   'text-2xl font-bold tabular-nums',
-                  tudoOk ? 'text-emerald-700' : 'text-amber-700'
+                  tudoOk ? 'text-emerald-700' : gastouSemRegistrar ? 'text-amber-700' : 'text-blue-700'
                 )}>
                   {formatCurrency(Math.abs(gastosNaoIdentificados))}
                 </p>
                 <p className={cn(
                   'text-xs mt-1',
-                  tudoOk ? 'text-emerald-600' : 'text-amber-600'
+                  tudoOk ? 'text-emerald-600' : gastouSemRegistrar ? 'text-amber-600' : 'text-blue-600'
                 )}>
                   {tudoOk
                     ? 'Seus gastos estão todos registrados.'
-                    : 'Você pode ter gasto esse valor sem registrar.'}
+                    : gastouSemRegistrar
+                    ? 'Você pode ter gasto esse valor sem registrar.'
+                    : 'Você pode ter recebido algum valor sem registrar.'}
                 </p>
               </div>
 
@@ -247,7 +253,7 @@ export function GastosAvistaPanel({
                 onClick={() => setShowDetalhes((v) => !v)}
                 className={cn(
                   'flex items-center gap-1 text-xs font-medium shrink-0 mt-1',
-                  tudoOk ? 'text-emerald-600' : 'text-amber-600'
+                  tudoOk ? 'text-emerald-600' : gastouSemRegistrar ? 'text-amber-600' : 'text-blue-600'
                 )}
               >
                 {showDetalhes ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
