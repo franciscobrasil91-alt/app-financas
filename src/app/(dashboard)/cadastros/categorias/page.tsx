@@ -12,9 +12,8 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { criarCategoria, atualizarCategoria, deletarCategoria, getCategorias, criarCategoriasPadrao } from './actions'
 
 const TIPOS: Record<string, string> = {
-  despesa: 'Despesa',
+  despesa: 'Gasto',
   receita: 'Receita',
-  cartao: 'Cartão',
 }
 
 const CORES_SUGERIDAS = [

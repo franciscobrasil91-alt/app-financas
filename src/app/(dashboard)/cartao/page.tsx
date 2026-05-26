@@ -19,7 +19,7 @@ export default async function CartaoPage({ searchParams }: PageProps) {
   const [lancamentos, cartoes, categorias] = await Promise.all([
     getLancamentos(mesRef, searchParams.cartao),
     getCartoes(),
-    getCategorias('cartao'),
+    getCategorias('despesa'),
   ])
 
   const totalMes = lancamentos.reduce((s: number, l: any) => s + Number(l.valor_parcela), 0)

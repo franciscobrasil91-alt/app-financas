@@ -157,6 +157,7 @@ export async function getCategoriasAll() {
     .from('categorias')
     .select('*')
     .eq('user_id', user.id)
+    .eq('tipo', 'despesa')
     .order('nome')
 
   return data ?? []
