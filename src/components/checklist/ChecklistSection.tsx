@@ -1,11 +1,11 @@
 'use client'
 import { useState, useTransition, useEffect, useCallback } from 'react'
-import { Check, CreditCard, Receipt, TrendingUp, TrendingDown, Pencil, Loader2 } from 'lucide-react'
+import { Check, CreditCard, Receipt, TrendingUp, TrendingDown, Pencil, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist } from '@/app/(dashboard)/checklist/actions'
+import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist, criarDespesaPontual, criarReceitaPontual } from '@/app/(dashboard)/checklist/actions'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -106,6 +106,10 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
   const [editTarget, setEditTarget] = useState<EditTarget>(null)
   const [salvando, setSalvando] = useState(false)
 
+  // Estado do dialog de criação pontual
+  const [criarTipo, setCriarTipo] = useState<'despesa' | 'receita' | null>(null)
+  const [criando, setCriando] = useState(false)
+
   // Lista local mutável (para atualizar sem recarregar página)
   const [despesasLocal, setDespesasLocal] = useState(despesas)
   const [receitasLocal, setReceitasLocal] = useState(receitas)
@@ -113,6 +117,41 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
   })
+
+  const {
+    register: registerCriar,
+    handleSubmit: handleSubmitCriar,
+    reset: resetCriar,
+    formState: { errors: errorsCriar },
+  } = useForm<EditForm>({ resolver: zodResolver(editSchema) })
+
+  function abrirCriacao(tipo: 'despesa' | 'receita') {
+    setCriarTipo(tipo)
+    resetCriar({ descricao: '', valor: '', dia_vencimento: '' })
+  }
+
+  async function onCriarPontual(data: EditForm) {
+    if (!criarTipo) return
+    setCriando(true)
+    const valor = parseFloat(data.valor.replace(',', '.'))
+
+    if (criarTipo === 'despesa') {
+      const dia = data.dia_vencimento ? parseInt(data.dia_vencimento) : null
+      const result = await criarDespesaPontual(mesRef, { descricao: data.descricao, valor, dia_vencimento: dia })
+      if (result?.error) { toast.error(result.error); setCriando(false); return }
+      setDespesasLocal((prev) => [...prev, {
+        id: result.id!, descricao: data.descricao, valor, dia_vencimento: dia,
+      }])
+    } else {
+      const result = await criarReceitaPontual(mesRef, { descricao: data.descricao, valor })
+      if (result?.error) { toast.error(result.error); setCriando(false); return }
+      setReceitasLocal((prev) => [...prev, { id: result.id!, descricao: data.descricao, valor }])
+    }
+
+    toast.success(`${criarTipo === 'despesa' ? 'Despesa' : 'Receita'} adicionada!`)
+    setCriarTipo(null)
+    setCriando(false)
+  }
 
   function abrirEdicao(tipo: 'despesa' | 'receita', item: ItemDespesa | ItemReceita) {
     setEditTarget({ tipo, item })
@@ -306,11 +345,20 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
             <TrendingUp className="h-4 w-4" />
             <h2 className="font-semibold text-sm">Receitas</h2>
           </div>
-          <div className="text-right">
-            <span className="text-sm font-bold text-green-700">{formatCurrency(totalReceitas)}</span>
-            {totalRecPendente < totalReceitas && (
-              <p className="text-xs text-green-600/70">{formatCurrency(totalRecPendente)} pendente</p>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-sm font-bold text-green-700">{formatCurrency(totalReceitas)}</span>
+              {totalRecPendente < totalReceitas && (
+                <p className="text-xs text-green-600/70">{formatCurrency(totalRecPendente)} pendente</p>
+              )}
+            </div>
+            <button
+              onClick={() => abrirCriacao('receita')}
+              className="h-6 w-6 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors shrink-0"
+              title="Adicionar receita pontual"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
         <div className="p-3 space-y-2">
@@ -339,11 +387,20 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
             <Receipt className="h-4 w-4" />
             <h2 className="font-semibold text-sm">Despesas</h2>
           </div>
-          <div className="text-right">
-            <span className="text-sm font-bold text-orange-700">{formatCurrency(totalDespesas)}</span>
-            {totalDespPendente < totalDespesas && (
-              <p className="text-xs text-orange-600/70">{formatCurrency(totalDespPendente)} pendente</p>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-sm font-bold text-orange-700">{formatCurrency(totalDespesas)}</span>
+              {totalDespPendente < totalDespesas && (
+                <p className="text-xs text-orange-600/70">{formatCurrency(totalDespPendente)} pendente</p>
+              )}
+            </div>
+            <button
+              onClick={() => abrirCriacao('despesa')}
+              className="h-6 w-6 rounded-full bg-orange-600 text-white flex items-center justify-center hover:bg-orange-700 transition-colors shrink-0"
+              title="Adicionar despesa pontual"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
         <div className="p-3 space-y-2">
@@ -399,6 +456,52 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
       </div>
 
     </div> {/* fim space-y-5 */}
+
+      {/* ── Dialog de criação pontual ── */}
+      <Dialog open={!!criarTipo} onOpenChange={(open) => !open && setCriarTipo(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-base">
+              {criarTipo === 'despesa' ? 'Nova despesa' : 'Nova receita'} — só este mês
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmitCriar(onCriarPontual)} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-descricao">Descrição</Label>
+              <Input id="cr-descricao" placeholder={criarTipo === 'despesa' ? 'Ex: Conserto do carro' : 'Ex: Freela de maio'} {...registerCriar('descricao')} />
+              {errorsCriar.descricao && <p className="text-xs text-destructive">{errorsCriar.descricao.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-valor">Valor (R$)</Label>
+              <Input id="cr-valor" inputMode="decimal" placeholder="0,00" {...registerCriar('valor')} />
+              {errorsCriar.valor && <p className="text-xs text-destructive">{errorsCriar.valor.message}</p>}
+            </div>
+
+            {criarTipo === 'despesa' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cr-venc">Dia de vencimento <span className="text-muted-foreground">(opcional)</span></Label>
+                <Input id="cr-venc" type="number" min={1} max={31} placeholder="Ex: 15" {...registerCriar('dia_vencimento')} />
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Este item aparece apenas no checklist de {String(mesRef).slice(0,4)}/{String(mesRef).slice(4).padStart(2,'0')}.
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setCriarTipo(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1" disabled={criando}>
+                {criando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Adicionar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog de edição ── */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>

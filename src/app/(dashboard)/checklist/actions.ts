@@ -217,6 +217,61 @@ export async function criarGastoAvista(payload: {
   return { success: true }
 }
 
+// ─── Criação de item pontual direto no checklist ─────────────────────────────
+
+export async function criarDespesaPontual(mesRef: number, data: {
+  descricao: string
+  valor: number
+  dia_vencimento?: number | null
+}) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: despesa, error: e1 } = await supabase
+    .from('despesas')
+    .insert({ user_id: user.id, descricao: data.descricao, tipo: 'pontual', dia_vencimento: data.dia_vencimento ?? null, ativa: true })
+    .select('id')
+    .single()
+
+  if (e1) return { error: e1.message }
+
+  const { error: e2 } = await supabase
+    .from('despesas_valores')
+    .insert({ despesa_id: despesa.id, user_id: user.id, mes_referencia: mesRef, valor: data.valor })
+
+  if (e2) return { error: e2.message }
+
+  revalidatePath('/checklist')
+  return { success: true, id: despesa.id }
+}
+
+export async function criarReceitaPontual(mesRef: number, data: {
+  descricao: string
+  valor: number
+}) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: receita, error: e1 } = await supabase
+    .from('receitas')
+    .insert({ user_id: user.id, descricao: data.descricao, tipo: 'pontual', ativa: true })
+    .select('id')
+    .single()
+
+  if (e1) return { error: e1.message }
+
+  const { error: e2 } = await supabase
+    .from('receitas_valores')
+    .insert({ receita_id: receita.id, user_id: user.id, mes_referencia: mesRef, valor: data.valor })
+
+  if (e2) return { error: e2.message }
+
+  revalidatePath('/checklist')
+  return { success: true, id: receita.id }
+}
+
 // ─── Edição inline de despesa/receita no checklist ───────────────────────────
 
 export async function editarDespesaChecklist(
