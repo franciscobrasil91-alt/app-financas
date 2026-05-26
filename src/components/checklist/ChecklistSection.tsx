@@ -1,11 +1,11 @@
 'use client'
 import { useState, useTransition, useEffect, useCallback } from 'react'
-import { Check, CreditCard, Receipt, TrendingUp, TrendingDown, Pencil, Loader2, Plus } from 'lucide-react'
+import { Check, CreditCard, Receipt, TrendingUp, TrendingDown, Pencil, Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist, criarDespesaPontual, criarReceitaPontual } from '@/app/(dashboard)/checklist/actions'
+import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist, criarDespesaPontual, criarReceitaPontual, removerDespesaDoMes, removerReceitaDoMes } from '@/app/(dashboard)/checklist/actions'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -105,6 +105,8 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
   // Estado do dialog de edição
   const [editTarget, setEditTarget] = useState<EditTarget>(null)
   const [salvando, setSalvando] = useState(false)
+  const [removendo, setRemovendo] = useState(false)
+  const [confirmarRemocao, setConfirmarRemocao] = useState(false)
 
   // Estado do dialog de criação pontual
   const [criarTipo, setCriarTipo] = useState<'despesa' | 'receita' | null>(null)
@@ -153,8 +155,27 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
     setCriando(false)
   }
 
+  async function onRemover() {
+    if (!editTarget) return
+    setRemovendo(true)
+    let result
+    if (editTarget.tipo === 'despesa') {
+      result = await removerDespesaDoMes(editTarget.item.id, mesRef)
+      if (!result?.error) setDespesasLocal((prev) => prev.filter((d) => d.id !== editTarget.item.id))
+    } else {
+      result = await removerReceitaDoMes(editTarget.item.id, mesRef)
+      if (!result?.error) setReceitasLocal((prev) => prev.filter((r) => r.id !== editTarget.item.id))
+    }
+    if (result?.error) { toast.error(result.error); setRemovendo(false); return }
+    toast.success('Item removido do mês.')
+    setEditTarget(null)
+    setConfirmarRemocao(false)
+    setRemovendo(false)
+  }
+
   function abrirEdicao(tipo: 'despesa' | 'receita', item: ItemDespesa | ItemReceita) {
     setEditTarget({ tipo, item })
+    setConfirmarRemocao(false)
     reset({
       descricao: item.descricao,
       valor: String(item.valor).replace('.', ','),
@@ -551,6 +572,33 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 {salvando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar
               </Button>
+            </div>
+
+            {/* Remover do mês */}
+            <div className="border-t pt-3 mt-1">
+              {!confirmarRemocao ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmarRemocao(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remover do mês
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-destructive font-medium">Tem certeza? O item será removido deste mês.</p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => setConfirmarRemocao(false)}>
+                      Não
+                    </Button>
+                    <Button type="button" variant="destructive" size="sm" className="flex-1 text-xs h-8" onClick={onRemover} disabled={removendo}>
+                      {removendo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      Sim, remover
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </form>
         </DialogContent>

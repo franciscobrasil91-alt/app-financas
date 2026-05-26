@@ -272,6 +272,78 @@ export async function criarReceitaPontual(mesRef: number, data: {
   return { success: true, id: receita.id }
 }
 
+// ─── Remoção de item do mês no checklist ─────────────────────────────────────
+
+export async function removerDespesaDoMes(id: string, mesRef: number) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  // Remove o valor deste mês
+  await supabase
+    .from('despesas_valores')
+    .delete()
+    .eq('despesa_id', id)
+    .eq('mes_referencia', mesRef)
+
+  // Remove também do checklist se estava marcado
+  await supabase
+    .from('checklist_mensal')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('mes_referencia', mesRef)
+    .eq('tipo', 'despesa')
+    .eq('referencia_id', id)
+
+  // Se for pontual e não tiver mais valores, apaga o registro pai
+  const { count } = await supabase
+    .from('despesas_valores')
+    .select('*', { count: 'exact', head: true })
+    .eq('despesa_id', id)
+
+  if (count === 0) {
+    await supabase.from('despesas').delete().eq('id', id).eq('user_id', user.id)
+  }
+
+  revalidatePath('/checklist')
+  revalidatePath('/despesas')
+  return { success: true }
+}
+
+export async function removerReceitaDoMes(id: string, mesRef: number) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  await supabase
+    .from('receitas_valores')
+    .delete()
+    .eq('receita_id', id)
+    .eq('mes_referencia', mesRef)
+
+  await supabase
+    .from('checklist_mensal')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('mes_referencia', mesRef)
+    .eq('tipo', 'receita')
+    .eq('referencia_id', id)
+
+  // Se for pontual e não tiver mais valores, apaga o registro pai
+  const { count } = await supabase
+    .from('receitas_valores')
+    .select('*', { count: 'exact', head: true })
+    .eq('receita_id', id)
+
+  if (count === 0) {
+    await supabase.from('receitas').delete().eq('id', id).eq('user_id', user.id)
+  }
+
+  revalidatePath('/checklist')
+  revalidatePath('/receitas')
+  return { success: true }
+}
+
 // ─── Edição inline de despesa/receita no checklist ───────────────────────────
 
 export async function editarDespesaChecklist(
