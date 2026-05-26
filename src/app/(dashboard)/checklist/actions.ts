@@ -237,7 +237,7 @@ export async function editarDespesaChecklist(
     supabase
       .from('despesas_valores')
       .upsert(
-        { despesa_id: id, mes_referencia: mesRef, valor: data.valor },
+        { despesa_id: id, user_id: user.id, mes_referencia: mesRef, valor: data.valor },
         { onConflict: 'despesa_id,mes_referencia' }
       ),
   ])
@@ -268,7 +268,7 @@ export async function editarReceitaChecklist(
     supabase
       .from('receitas_valores')
       .upsert(
-        { receita_id: id, mes_referencia: mesRef, valor: data.valor },
+        { receita_id: id, user_id: user.id, mes_referencia: mesRef, valor: data.valor },
         { onConflict: 'receita_id,mes_referencia' }
       ),
   ])
