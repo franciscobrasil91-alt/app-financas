@@ -1,11 +1,26 @@
 'use client'
 import { useState, useTransition, useEffect, useCallback } from 'react'
-import { Check, CreditCard, Receipt, TrendingUp, TrendingDown } from 'lucide-react'
+import { Check, CreditCard, Receipt, TrendingUp, TrendingDown, Pencil, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { toggleChecklist } from '@/app/(dashboard)/checklist/actions'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist } from '@/app/(dashboard)/checklist/actions'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { FaturaCartao, ItemDespesa, ItemReceita } from '@/app/(dashboard)/checklist/actions'
+
+// ─── Schema de edição ───────────────────────────────────────────────────────
+const editSchema = z.object({
+  descricao: z.string().min(1, 'Descrição obrigatória'),
+  valor: z.string().min(1, 'Valor obrigatório'),
+  dia_vencimento: z.string().optional(),
+})
+type EditForm = z.infer<typeof editSchema>
 
 // ─── Item individual ────────────────────────────────────────────────────────
 interface CheckItemProps {
@@ -16,36 +31,53 @@ interface CheckItemProps {
   concluido: boolean
   corValor: string
   onToggle: (key: string) => void
+  onEdit?: () => void
 }
 
-function CheckItem({ label, sublabel, valor, itemKey, concluido, corValor, onToggle }: CheckItemProps) {
+function CheckItem({ label, sublabel, valor, itemKey, concluido, corValor, onToggle, onEdit }: CheckItemProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-lg border transition-all cursor-pointer select-none',
+        'flex items-center gap-3 px-4 py-3 rounded-lg border transition-all select-none group',
         concluido
           ? 'bg-muted/30 border-muted opacity-60'
           : 'bg-white border-border hover:bg-muted/10'
       )}
-      onClick={() => onToggle(itemKey)}
     >
-      <div className={cn(
-        'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
-        concluido ? 'bg-green-500 border-green-500' : 'border-muted-foreground/40'
-      )}>
-        {concluido && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-      </div>
+      {/* Área de toggle (checkbox) */}
+      <div
+        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+        onClick={() => onToggle(itemKey)}
+      >
+        <div className={cn(
+          'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
+          concluido ? 'bg-green-500 border-green-500' : 'border-muted-foreground/40'
+        )}>
+          {concluido && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium truncate', concluido && 'line-through text-muted-foreground')}>
-          {label}
-        </p>
-        {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+        <div className="flex-1 min-w-0">
+          <p className={cn('text-sm font-medium truncate', concluido && 'line-through text-muted-foreground')}>
+            {label}
+          </p>
+          {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+        </div>
       </div>
 
       <span className={cn('text-sm font-semibold tabular-nums shrink-0', concluido ? 'text-muted-foreground line-through' : corValor)}>
         {formatCurrency(valor)}
       </span>
+
+      {/* Botão de edição */}
+      {onEdit && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+          className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted transition-all opacity-0 group-hover:opacity-100 shrink-0"
+          title="Editar"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }
@@ -63,10 +95,62 @@ function parseSaldo(v: string): number {
   return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0
 }
 
+type EditTarget = { tipo: 'despesa' | 'receita'; item: ItemDespesa | ItemReceita } | null
+
 export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicial, mesRef }: ChecklistPanelProps) {
   // Estado centralizado de todos os checkboxes
   const [estados, setEstados] = useState<Record<string, boolean>>(inicial)
   const [pending, startTransition] = useTransition()
+
+  // Estado do dialog de edição
+  const [editTarget, setEditTarget] = useState<EditTarget>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  // Lista local mutável (para atualizar sem recarregar página)
+  const [despesasLocal, setDespesasLocal] = useState(despesas)
+  const [receitasLocal, setReceitasLocal] = useState(receitas)
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<EditForm>({
+    resolver: zodResolver(editSchema),
+  })
+
+  function abrirEdicao(tipo: 'despesa' | 'receita', item: ItemDespesa | ItemReceita) {
+    setEditTarget({ tipo, item })
+    reset({
+      descricao: item.descricao,
+      valor: String(item.valor).replace('.', ','),
+      dia_vencimento: tipo === 'despesa' ? String((item as ItemDespesa).dia_vencimento ?? '') : '',
+    })
+  }
+
+  async function onSalvarEdicao(data: EditForm) {
+    if (!editTarget) return
+    setSalvando(true)
+    const valor = parseFloat(data.valor.replace(',', '.'))
+
+    if (editTarget.tipo === 'despesa') {
+      const dia = data.dia_vencimento ? parseInt(data.dia_vencimento) : null
+      const result = await editarDespesaChecklist(editTarget.item.id, mesRef, {
+        descricao: data.descricao, valor, dia_vencimento: dia,
+      })
+      if (result?.error) { toast.error(result.error); setSalvando(false); return }
+      setDespesasLocal((prev) => prev.map((d) =>
+        d.id === editTarget.item.id ? { ...d, descricao: data.descricao, valor, dia_vencimento: dia } : d
+      ))
+    } else {
+      const result = await editarReceitaChecklist(editTarget.item.id, mesRef, {
+        descricao: data.descricao, valor,
+      })
+      if (result?.error) { toast.error(result.error); setSalvando(false); return }
+      setReceitasLocal((prev) => prev.map((r) =>
+        r.id === editTarget.item.id ? { ...r, descricao: data.descricao, valor } : r
+      ))
+    }
+
+    toast.success('Salvo!')
+    setEditTarget(null)
+    setSalvando(false)
+  }
 
   // Saldo atual — lido do localStorage (escrito pelo GastosAvistaPanel no topo)
   const storageKey = `saldo_checklist_${mesRef}`
@@ -101,8 +185,8 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
 
   // ── Cálculos de projeção ──
   // Pendentes = ainda não marcados
-  const receitasPendentes   = receitas.filter((r) => !estados[`receita:${r.id}`])
-  const despesasPendentes   = despesas.filter((d) => !estados[`despesa:${d.id}`])
+  const receitasPendentes   = receitasLocal.filter((r) => !estados[`receita:${r.id}`])
+  const despesasPendentes   = despesasLocal.filter((d) => !estados[`despesa:${d.id}`])
   const faturasPendentes    = faturas.filter((f)  => !estados[`cartao:${f.cartao_id}`])
 
   const totalRecPendente  = receitasPendentes.reduce((s, r) => s + r.valor, 0)
@@ -113,14 +197,14 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
   const saldoProjetado = saldoAtual + totalRecPendente - totalPagarPendente
 
   // Totais gerais (para os headers de seção)
-  const totalReceitas = receitas.reduce((s, r) => s + r.valor, 0)
-  const totalDespesas = despesas.reduce((s, d) => s + d.valor, 0)
+  const totalReceitas = receitasLocal.reduce((s, r) => s + r.valor, 0)
+  const totalDespesas = despesasLocal.reduce((s, d) => s + d.valor, 0)
   const totalCartoes  = faturas.reduce((s, f) => s + f.total, 0)
 
   // Progresso
   const allKeys = [
-    ...receitas.map((r) => `receita:${r.id}`),
-    ...despesas.map((d) => `despesa:${d.id}`),
+    ...receitasLocal.map((r) => `receita:${r.id}`),
+    ...despesasLocal.map((d) => `despesa:${d.id}`),
     ...faturas.map((f)  => `cartao:${f.cartao_id}`),
   ]
   const totalItens     = allKeys.length
@@ -128,6 +212,7 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
   const pct = totalItens > 0 ? Math.round((itensConcluidos / totalItens) * 100) : 0
 
   return (
+    <>
     <div className="space-y-5">
 
       {/* ── Rótulo separador ── */}
@@ -229,9 +314,9 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
           </div>
         </div>
         <div className="p-3 space-y-2">
-          {receitas.length === 0
+          {receitasLocal.length === 0
             ? <p className="text-sm text-muted-foreground text-center py-4">Nenhuma receita prevista para este mês.</p>
-            : receitas.map((r) => (
+            : receitasLocal.map((r) => (
               <CheckItem
                 key={r.id}
                 itemKey={`receita:${r.id}`}
@@ -240,6 +325,7 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 concluido={!!estados[`receita:${r.id}`]}
                 corValor="text-green-600"
                 onToggle={handleToggle}
+                onEdit={() => abrirEdicao('receita', r)}
               />
             ))
           }
@@ -261,9 +347,9 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
           </div>
         </div>
         <div className="p-3 space-y-2">
-          {despesas.length === 0
+          {despesasLocal.length === 0
             ? <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa prevista para este mês.</p>
-            : despesas.map((d) => (
+            : despesasLocal.map((d) => (
               <CheckItem
                 key={d.id}
                 itemKey={`despesa:${d.id}`}
@@ -273,6 +359,7 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 concluido={!!estados[`despesa:${d.id}`]}
                 corValor="text-red-600"
                 onToggle={handleToggle}
+                onEdit={() => abrirEdicao('despesa', d)}
               />
             ))
           }
@@ -311,6 +398,60 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
         </div>
       </div>
 
-    </div>
+    </div> {/* fim space-y-5 */}
+
+      {/* ── Dialog de edição ── */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-base">
+              Editar {editTarget?.tipo === 'despesa' ? 'despesa' : 'receita'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit(onSalvarEdicao)} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-descricao">Descrição</Label>
+              <Input id="ed-descricao" {...register('descricao')} />
+              {errors.descricao && <p className="text-xs text-destructive">{errors.descricao.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-valor">Valor (R$)</Label>
+              <Input id="ed-valor" inputMode="decimal" placeholder="0,00" {...register('valor')} />
+              {errors.valor && <p className="text-xs text-destructive">{errors.valor.message}</p>}
+            </div>
+
+            {editTarget?.tipo === 'despesa' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-venc">Dia de vencimento</Label>
+                <Input
+                  id="ed-venc"
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="Ex: 10"
+                  {...register('dia_vencimento')}
+                />
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              A alteração do valor vale apenas para este mês.
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setEditTarget(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1" disabled={salvando}>
+                {salvando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

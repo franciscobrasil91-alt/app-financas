@@ -217,6 +217,70 @@ export async function criarGastoAvista(payload: {
   return { success: true }
 }
 
+// ─── Edição inline de despesa/receita no checklist ───────────────────────────
+
+export async function editarDespesaChecklist(
+  id: string,
+  mesRef: number,
+  data: { descricao: string; valor: number; dia_vencimento?: number | null }
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const [r1, r2] = await Promise.all([
+    supabase
+      .from('despesas')
+      .update({ descricao: data.descricao, dia_vencimento: data.dia_vencimento ?? null })
+      .eq('id', id)
+      .eq('user_id', user.id),
+    supabase
+      .from('despesas_valores')
+      .upsert(
+        { despesa_id: id, mes_referencia: mesRef, valor: data.valor },
+        { onConflict: 'despesa_id,mes_referencia' }
+      ),
+  ])
+
+  if (r1.error) return { error: r1.error.message }
+  if (r2.error) return { error: r2.error.message }
+
+  revalidatePath('/checklist')
+  revalidatePath('/despesas')
+  return { success: true }
+}
+
+export async function editarReceitaChecklist(
+  id: string,
+  mesRef: number,
+  data: { descricao: string; valor: number }
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const [r1, r2] = await Promise.all([
+    supabase
+      .from('receitas')
+      .update({ descricao: data.descricao })
+      .eq('id', id)
+      .eq('user_id', user.id),
+    supabase
+      .from('receitas_valores')
+      .upsert(
+        { receita_id: id, mes_referencia: mesRef, valor: data.valor },
+        { onConflict: 'receita_id,mes_referencia' }
+      ),
+  ])
+
+  if (r1.error) return { error: r1.error.message }
+  if (r2.error) return { error: r2.error.message }
+
+  revalidatePath('/checklist')
+  revalidatePath('/receitas')
+  return { success: true }
+}
+
 export async function deletarGastoAvista(id: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
