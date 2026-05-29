@@ -1,9 +1,9 @@
 import { mesRefPadrao, mesReferenciaLabel, formatCurrency } from '@/lib/utils'
 import { getLancamentos, getCartoes, getCategorias } from './actions'
 import { LancamentoForm } from '@/components/cartao/LancamentoForm'
-import { LancamentosTable } from '@/components/cartao/LancamentosTable'
 import { LancamentoLoteDialog } from '@/components/cartao/LancamentoLoteDialog'
 import { ExportarFaturasDialog } from '@/components/cartao/ExportarFaturasDialog'
+import { CartaoResumoFiltro } from '@/components/cartao/CartaoResumoFiltro'
 import { MonthSelector } from '@/components/dashboard/MonthSelector'
 import { CreditCard } from 'lucide-react'
 
@@ -66,33 +66,6 @@ export default async function CartaoPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Resumo por cartão */}
-      {faturasPorCartao.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {faturasPorCartao.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-sm">
-              <div className="bg-red-100 rounded-lg p-1.5">
-                <CreditCard className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{c.nome}</p>
-                <p className="text-lg font-bold text-red-600">{formatCurrency(c.total)}</p>
-              </div>
-            </div>
-          ))}
-
-          {/* Total geral — só aparece se houver mais de 1 cartão */}
-          {faturasPorCartao.length > 1 && (
-            <div className="flex items-center gap-3 rounded-xl border border-dashed bg-muted/30 px-5 py-3">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total</p>
-                <p className="text-lg font-bold text-gray-800">{formatCurrency(totalMes)}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Sem cartões cadastrados */}
       {cartoes.length === 0 && (
         <div className="rounded-lg border border-dashed p-8 text-center">
@@ -104,10 +77,14 @@ export default async function CartaoPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* Tabela de lançamentos */}
-      {cartoes.length > 0 && (
-        <LancamentosTable lancamentos={lancamentos as any} categorias={categorias} />
-      )}
+      {/* Resumo por cartão + tabela com filtro */}
+      <CartaoResumoFiltro
+        faturasPorCartao={faturasPorCartao}
+        totalMes={totalMes}
+        lancamentos={lancamentos as any}
+        categorias={categorias}
+        cartoes={cartoes}
+      />
     </div>
   )
 }
