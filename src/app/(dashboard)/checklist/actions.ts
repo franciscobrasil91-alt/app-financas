@@ -158,6 +158,22 @@ export async function salvarSaldoInicial(mesRef: number, valor: number) {
   return { success: true }
 }
 
+export async function salvarSaldoHoje(mesRef: number, valor: number) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { error } = await supabase
+    .from('saldo_inicial_mes')
+    .upsert(
+      { user_id: user.id, mes_referencia: mesRef, saldo_hoje: valor, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,mes_referencia' }
+    )
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 // ─── Gastos à Vista ───────────────────────────────────────────────────────────
 
 export interface GastoAvista {

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   salvarSaldoInicial,
+  salvarSaldoHoje,
   criarGastoAvista,
   deletarGastoAvista,
 } from '@/app/(dashboard)/checklist/actions'
@@ -75,6 +76,8 @@ export function GastosAvistaPanel({
     localStorage.setItem(storageKey, limpo)
     // Notifica ChecklistSection na mesma aba
     window.dispatchEvent(new CustomEvent('saldoAtualUpdated', { detail: { value: num, raw: limpo } }))
+    // Persiste no banco para o Dashboard usar
+    if (num > 0) salvarSaldoHoje(mesRef, num)
   }
 
   // ── Gastos avulsos ──

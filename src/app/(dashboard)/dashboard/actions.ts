@@ -16,6 +16,7 @@ export async function getDashboardData(mesRef: number) {
     { data: lancamentosCartao },
     { data: aportesValores },
     { data: saldoBancario },
+    { data: saldoHojeRow },
   ] = await Promise.all([
     supabase
       .from('receitas_valores')
@@ -46,6 +47,12 @@ export async function getDashboardData(mesRef: number) {
       .eq('user_id', user.id)
       .eq('mes_referencia', mesRef)
       .maybeSingle(),
+    supabase
+      .from('saldo_inicial_mes')
+      .select('saldo_hoje')
+      .eq('user_id', user.id)
+      .eq('mes_referencia', mesRef)
+      .maybeSingle(),
   ])
 
   const totalReceitas = (receitasValores ?? []).reduce((s, r) => s + Number(r.valor), 0)
@@ -53,12 +60,19 @@ export async function getDashboardData(mesRef: number) {
   const totalCartao = (lancamentosCartao ?? []).reduce((s, l) => s + Number(l.valor_parcela), 0)
   const totalReservas = (aportesValores ?? []).reduce((s, a) => s + Number(a.valor), 0)
 
+  // Se o usuário informou o saldo de hoje no Controle Mensal, usa como base
+  // Caso contrário, calcula como fluxo líquido do mês (receitas - saídas)
+  const saldoHoje = saldoHojeRow?.saldo_hoje != null ? Number(saldoHojeRow.saldo_hoje) : null
+  const saldoPrevisto = saldoHoje !== null
+    ? saldoHoje + totalReceitas - totalDespesas - totalCartao - totalReservas
+    : totalReceitas - totalDespesas - totalCartao - totalReservas
+
   const summary: DashboardSummary = {
     totalReceitas,
     totalDespesas,
     totalCartao,
     totalReservas,
-    saldoPrevisto: totalReceitas - totalDespesas - totalCartao - totalReservas,
+    saldoPrevisto,
     saldoBancario: saldoBancario?.saldo ?? null,
   }
 
