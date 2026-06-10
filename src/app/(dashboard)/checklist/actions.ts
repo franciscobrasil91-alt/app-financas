@@ -25,13 +25,14 @@ export interface ChecklistData {
   faturas: FaturaCartao[]
   despesas: ItemDespesa[]
   receitas: ItemReceita[]
-  concluidos: Record<string, boolean>   // chave: "tipo:referencia_id"
+  concluidos: Record<string, boolean>      // chave: "tipo:referencia_id"
+  valoresPagos: Record<string, number>     // chave: "tipo:referencia_id" — somente pagamentos parciais
 }
 
 export async function getChecklistData(mesRef: number): Promise<ChecklistData> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { faturas: [], despesas: [], receitas: [], concluidos: {} }
+  if (!user) return { faturas: [], despesas: [], receitas: [], concluidos: {}, valoresPagos: {} }
 
   // Todas as 4 queries em paralelo
   const [
@@ -61,7 +62,7 @@ export async function getChecklistData(mesRef: number): Promise<ChecklistData> {
       .gt('receitas_valores.valor', 0),
     supabase
       .from('checklist_mensal')
-      .select('tipo, referencia_id, concluido')
+      .select('tipo, referencia_id, concluido, valor_pago')
       .eq('user_id', user.id)
       .eq('mes_referencia', mesRef),
   ])
@@ -93,13 +94,17 @@ export async function getChecklistData(mesRef: number): Promise<ChecklistData> {
   }))
 
   const concluidos: Record<string, boolean> = {}
+  const valoresPagos: Record<string, number> = {}
   for (const c of checkRaw ?? []) {
-    concluidos[`${c.tipo}:${c.referencia_id}`] = c.concluido
+    const key = `${c.tipo}:${c.referencia_id}`
+    concluidos[key] = c.concluido
+    if ((c as any).valor_pago != null) valoresPagos[key] = Number((c as any).valor_pago)
   }
 
-  return { faturas, despesas, receitas, concluidos }
+  return { faturas, despesas, receitas, concluidos, valoresPagos }
 }
 
+// Usado apenas para DESmarcar um item (concluido=false) — limpa valor_pago junto
 export async function toggleChecklist(
   mesRef: number,
   tipo: 'cartao' | 'despesa' | 'receita',
@@ -110,11 +115,10 @@ export async function toggleChecklist(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
 
-  // Upsert direto — 1 query em vez de select + insert/update
   const { error } = await supabase
     .from('checklist_mensal')
     .upsert(
-      { user_id: user.id, mes_referencia: mesRef, tipo, referencia_id: referenciaId, concluido },
+      { user_id: user.id, mes_referencia: mesRef, tipo, referencia_id: referenciaId, concluido, valor_pago: null } as any,
       { onConflict: 'user_id,mes_referencia,tipo,referencia_id' }
     )
 
@@ -122,6 +126,42 @@ export async function toggleChecklist(
 
   revalidatePath('/checklist')
   return { success: true }
+}
+
+// Registra pagamento total ou parcial de um item
+// Se valorPago >= valorTotal → concluido=true (pago integralmente)
+// Se valorPago < valorTotal  → concluido=false, valor_pago=valorPago (pago parcialmente)
+export async function registrarPagamento(
+  mesRef: number,
+  tipo: 'cartao' | 'despesa' | 'receita',
+  referenciaId: string,
+  valorPago: number,
+  valorTotal: number
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const concluido = valorPago >= valorTotal
+
+  const { error } = await supabase
+    .from('checklist_mensal')
+    .upsert(
+      {
+        user_id: user.id,
+        mes_referencia: mesRef,
+        tipo,
+        referencia_id: referenciaId,
+        concluido,
+        valor_pago: concluido ? null : valorPago,
+      } as any,
+      { onConflict: 'user_id,mes_referencia,tipo,referencia_id' }
+    )
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/checklist')
+  return { success: true, concluido }
 }
 
 // ─── Saldo Inicial ────────────────────────────────────────────────────────────

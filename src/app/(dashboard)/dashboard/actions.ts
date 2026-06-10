@@ -58,15 +58,18 @@ export async function getDashboardData(mesRef: number) {
       .maybeSingle(),
     supabase
       .from('checklist_mensal')
-      .select('tipo, referencia_id, concluido')
+      .select('tipo, referencia_id, concluido, valor_pago')
       .eq('user_id', user.id)
       .eq('mes_referencia', mesRef),
   ])
 
-  // Conjunto de itens já concluídos no checklist
+  // Conjunto de itens concluídos + mapa de valores parcialmente pagos
   const concluidos = new Set<string>()
+  const valoresPagos = new Map<string, number>()
   for (const c of checklistRaw ?? []) {
-    if (c.concluido) concluidos.add(`${c.tipo}:${c.referencia_id}`)
+    const key = `${c.tipo}:${c.referencia_id}`
+    if (c.concluido) concluidos.add(key)
+    if ((c as any).valor_pago != null) valoresPagos.set(key, Number((c as any).valor_pago))
   }
 
   // Totais completos — usados nos cards secundários
@@ -81,18 +84,27 @@ export async function getDashboardData(mesRef: number) {
   }
   const totalCartao = Array.from(cartaoMap.values()).reduce((s, v) => s + v, 0)
 
-  // Pendentes = ainda não marcados no checklist (mesma lógica do ChecklistSection)
+  // Pendentes = ainda não concluídos, descontando o que foi pago parcialmente
   const recPendente = (receitasValores ?? [])
     .filter(r => !concluidos.has(`receita:${(r as any).receita_id}`))
-    .reduce((s, r) => s + Number(r.valor), 0)
+    .reduce((s, r) => {
+      const pago = valoresPagos.get(`receita:${(r as any).receita_id}`) ?? 0
+      return s + Math.max(0, Number(r.valor) - pago)
+    }, 0)
 
   const despPendente = (despesasValores ?? [])
     .filter(d => !concluidos.has(`despesa:${(d as any).despesa_id}`))
-    .reduce((s, d) => s + Number(d.valor), 0)
+    .reduce((s, d) => {
+      const pago = valoresPagos.get(`despesa:${(d as any).despesa_id}`) ?? 0
+      return s + Math.max(0, Number(d.valor) - pago)
+    }, 0)
 
   const fatPendente = Array.from(cartaoMap.entries())
     .filter(([cartaoId]) => !concluidos.has(`cartao:${cartaoId}`))
-    .reduce((s, [, v]) => s + v, 0)
+    .reduce((s, [cartaoId, v]) => {
+      const pago = valoresPagos.get(`cartao:${cartaoId}`) ?? 0
+      return s + Math.max(0, v - pago)
+    }, 0)
 
   // Saldo Previsto = mesma fórmula do Controle Mensal: saldoAtual + recPendente - (despPendente + fatPendente)
   // Quando saldo_hoje não foi informado, usa 0 como base (igual ao checklist sem saldo preenchido)

@@ -20,18 +20,24 @@ export default async function ChecklistPage({ searchParams }: PageProps) {
     getGastosAvista(mesRef),
   ])
 
-  // Calcula o que já entrou e saiu conforme o checklist salvo no banco
-  const receitasRecebidas = data.receitas
-    .filter((r) => data.concluidos[`receita:${r.id}`])
-    .reduce((s, r) => s + r.valor, 0)
+  // Calcula o que já entrou e saiu: item concluído = valor cheio; parcialmente pago = valor_pago
+  const receitasRecebidas = data.receitas.reduce((s, r) => {
+    const key = `receita:${r.id}`
+    if (data.concluidos[key]) return s + r.valor
+    return s + (data.valoresPagos[key] ?? 0)
+  }, 0)
 
   const saidasPagas =
-    data.despesas
-      .filter((d) => data.concluidos[`despesa:${d.id}`])
-      .reduce((s, d) => s + d.valor, 0) +
-    data.faturas
-      .filter((f) => data.concluidos[`cartao:${f.cartao_id}`])
-      .reduce((s, f) => s + f.total, 0)
+    data.despesas.reduce((s, d) => {
+      const key = `despesa:${d.id}`
+      if (data.concluidos[key]) return s + d.valor
+      return s + (data.valoresPagos[key] ?? 0)
+    }, 0) +
+    data.faturas.reduce((s, f) => {
+      const key = `cartao:${f.cartao_id}`
+      if (data.concluidos[key]) return s + f.total
+      return s + (data.valoresPagos[key] ?? 0)
+    }, 0)
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-2xl mx-auto">
@@ -68,6 +74,7 @@ export default async function ChecklistPage({ searchParams }: PageProps) {
         despesas={data.despesas}
         receitas={data.receitas}
         concluidos={data.concluidos}
+        valoresPagos={data.valoresPagos}
         mesRef={mesRef}
       />
     </div>

@@ -5,7 +5,16 @@ import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { toggleChecklist, editarDespesaChecklist, editarReceitaChecklist, criarDespesaPontual, criarReceitaPontual, removerDespesaDoMes, removerReceitaDoMes } from '@/app/(dashboard)/checklist/actions'
+import {
+  toggleChecklist,
+  registrarPagamento,
+  editarDespesaChecklist,
+  editarReceitaChecklist,
+  criarDespesaPontual,
+  criarReceitaPontual,
+  removerDespesaDoMes,
+  removerReceitaDoMes,
+} from '@/app/(dashboard)/checklist/actions'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,6 +36,7 @@ interface CheckItemProps {
   label: string
   sublabel?: string
   valor: number
+  valorPago?: number          // preenchido quando há pagamento parcial
   itemKey: string
   concluido: boolean
   corValor: string
@@ -34,26 +44,35 @@ interface CheckItemProps {
   onEdit?: () => void
 }
 
-function CheckItem({ label, sublabel, valor, itemKey, concluido, corValor, onToggle, onEdit }: CheckItemProps) {
+function CheckItem({ label, sublabel, valor, valorPago, itemKey, concluido, corValor, onToggle, onEdit }: CheckItemProps) {
+  const isParcial = !concluido && (valorPago ?? 0) > 0
+
   return (
     <div
       className={cn(
         'flex items-center gap-3 px-4 py-3 rounded-lg border transition-all select-none group',
         concluido
           ? 'bg-muted/30 border-muted opacity-60'
+          : isParcial
+          ? 'bg-amber-50/60 border-amber-200'
           : 'bg-white border-border hover:bg-muted/10'
       )}
     >
-      {/* Área de toggle (checkbox) */}
+      {/* Área de toggle (círculo) */}
       <div
         className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
         onClick={() => onToggle(itemKey)}
       >
         <div className={cn(
           'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
-          concluido ? 'bg-green-500 border-green-500' : 'border-muted-foreground/40'
+          concluido
+            ? 'bg-green-500 border-green-500'
+            : isParcial
+            ? 'border-amber-400 bg-amber-100'
+            : 'border-muted-foreground/40'
         )}>
           {concluido && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+          {isParcial && <span className="text-[8px] font-bold text-amber-600 leading-none">½</span>}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -61,6 +80,11 @@ function CheckItem({ label, sublabel, valor, itemKey, concluido, corValor, onTog
             {label}
           </p>
           {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+          {isParcial && (
+            <p className="text-xs text-amber-600/80">
+              Pago: {formatCurrency(valorPago!)} · Restante: {formatCurrency(valor - valorPago!)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -88,6 +112,7 @@ interface ChecklistPanelProps {
   despesas: ItemDespesa[]
   receitas: ItemReceita[]
   concluidos: Record<string, boolean>
+  valoresPagos: Record<string, number>
   mesRef: number
 }
 
@@ -97,22 +122,42 @@ function parseSaldo(v: string): number {
 
 type EditTarget = { tipo: 'despesa' | 'receita'; item: ItemDespesa | ItemReceita } | null
 
-export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicial, mesRef }: ChecklistPanelProps) {
-  // Estado centralizado de todos os checkboxes
+type PagandoItem = {
+  tipo: 'cartao' | 'despesa' | 'receita'
+  key: string
+  referenciaId: string
+  label: string
+  valorTotal: number
+}
+
+export function ChecklistPanel({
+  faturas,
+  despesas,
+  receitas,
+  concluidos: inicial,
+  valoresPagos: iniciaisVP,
+  mesRef,
+}: ChecklistPanelProps) {
   const [estados, setEstados] = useState<Record<string, boolean>>(inicial)
+  const [valoresPagosLocal, setValoresPagosLocal] = useState<Record<string, number>>(iniciaisVP)
   const [pending, startTransition] = useTransition()
 
-  // Estado do dialog de edição
+  // ── Estado do dialog de edição ──
   const [editTarget, setEditTarget] = useState<EditTarget>(null)
   const [salvando, setSalvando] = useState(false)
   const [removendo, setRemovendo] = useState(false)
   const [confirmarRemocao, setConfirmarRemocao] = useState(false)
 
-  // Estado do dialog de criação pontual
+  // ── Estado do dialog de criação pontual ──
   const [criarTipo, setCriarTipo] = useState<'despesa' | 'receita' | null>(null)
   const [criando, setCriando] = useState(false)
 
-  // Lista local mutável (para atualizar sem recarregar página)
+  // ── Estado do dialog de pagamento ──
+  const [pagandoItem, setPagandoItem] = useState<PagandoItem | null>(null)
+  const [valorPagarInput, setValorPagarInput] = useState('')
+  const [pagando, setPagando] = useState(false)
+
+  // Lista local mutável
   const [despesasLocal, setDespesasLocal] = useState(despesas)
   const [receitasLocal, setReceitasLocal] = useState(receitas)
 
@@ -127,6 +172,85 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
     formState: { errors: errorsCriar },
   } = useForm<EditForm>({ resolver: zodResolver(editSchema) })
 
+  // ── Saldo atual — lido do localStorage ──
+  const storageKey = `saldo_checklist_${mesRef}`
+  const [saldoAtual, setSaldoAtual] = useState(0)
+
+  useEffect(() => {
+    setSaldoAtual(parseSaldo(localStorage.getItem(storageKey) ?? ''))
+    const handler = (e: Event) => {
+      setSaldoAtual((e as CustomEvent).detail.value ?? 0)
+    }
+    window.addEventListener('saldoAtualUpdated', handler)
+    return () => window.removeEventListener('saldoAtualUpdated', handler)
+  }, [storageKey])
+
+  // ── Clique no círculo: desmarcar se já pago, ou abrir modal de pagamento ──
+  const handleCircleClick = useCallback((
+    key: string,
+    tipo: 'cartao' | 'despesa' | 'receita',
+    referenciaId: string,
+    label: string,
+    valorTotal: number
+  ) => {
+    if (estados[key]) {
+      // Desmarcar → limpa pagamento
+      setEstados(prev => ({ ...prev, [key]: false }))
+      setValoresPagosLocal(prev => { const n = { ...prev }; delete n[key]; return n })
+      startTransition(async () => {
+        const result = await toggleChecklist(mesRef, tipo, referenciaId, false)
+        if (result?.error) {
+          setEstados(prev => ({ ...prev, [key]: true }))
+          toast.error(result.error)
+        }
+      })
+    } else {
+      // Abrir modal de pagamento
+      const currentPago = valoresPagosLocal[key]
+      setPagandoItem({ tipo, key, referenciaId, label, valorTotal })
+      const valFormatado = currentPago != null
+        ? String(currentPago).replace('.', ',')
+        : String(valorTotal).replace('.', ',')
+      setValorPagarInput(valFormatado)
+    }
+  }, [estados, valoresPagosLocal, mesRef])
+
+  // ── Confirmar pagamento (total ou parcial) ──
+  async function onConfirmarPagamento() {
+    if (!pagandoItem) return
+    setPagando(true)
+    const valor = parseFloat(valorPagarInput.replace(',', '.'))
+    if (isNaN(valor) || valor <= 0) {
+      toast.error('Informe um valor válido')
+      setPagando(false)
+      return
+    }
+
+    const result = await registrarPagamento(
+      mesRef,
+      pagandoItem.tipo,
+      pagandoItem.referenciaId,
+      valor,
+      pagandoItem.valorTotal
+    )
+
+    if (result?.error) { toast.error(result.error); setPagando(false); return }
+
+    const concluido = result.concluido ?? (valor >= pagandoItem.valorTotal)
+    setEstados(prev => ({ ...prev, [pagandoItem.key]: concluido }))
+    if (concluido) {
+      setValoresPagosLocal(prev => { const n = { ...prev }; delete n[pagandoItem.key]; return n })
+      toast.success('Pago! ✓')
+    } else {
+      setValoresPagosLocal(prev => ({ ...prev, [pagandoItem.key]: valor }))
+      toast.success(`Pagamento parcial de ${formatCurrency(valor)} registrado.`)
+    }
+
+    setPagandoItem(null)
+    setPagando(false)
+  }
+
+  // ── Criação pontual ──
   function abrirCriacao(tipo: 'despesa' | 'receita') {
     setCriarTipo(tipo)
     resetCriar({ descricao: '', valor: '', dia_vencimento: '' })
@@ -155,6 +279,7 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
     setCriando(false)
   }
 
+  // ── Remoção ──
   async function onRemover() {
     if (!editTarget) return
     setRemovendo(true)
@@ -173,6 +298,7 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
     setRemovendo(false)
   }
 
+  // ── Edição inline ──
   function abrirEdicao(tipo: 'despesa' | 'receita', item: ItemDespesa | ItemReceita) {
     setEditTarget({ tipo, item })
     setConfirmarRemocao(false)
@@ -212,48 +338,27 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
     setSalvando(false)
   }
 
-  // Saldo atual — lido do localStorage (escrito pelo GastosAvistaPanel no topo)
-  const storageKey = `saldo_checklist_${mesRef}`
-  const [saldoAtual, setSaldoAtual] = useState(0)
+  // ── Cálculos de projeção (descontando pagamentos parciais) ──
+  const receitasPendentes = receitasLocal.filter(r => !estados[`receita:${r.id}`])
+  const despesasPendentes = despesasLocal.filter(d => !estados[`despesa:${d.id}`])
+  const faturasPendentes  = faturas.filter(f  => !estados[`cartao:${f.cartao_id}`])
 
-  useEffect(() => {
-    setSaldoAtual(parseSaldo(localStorage.getItem(storageKey) ?? ''))
+  const totalRecPendente = receitasPendentes.reduce((s, r) => {
+    const pago = valoresPagosLocal[`receita:${r.id}`] ?? 0
+    return s + Math.max(0, r.valor - pago)
+  }, 0)
 
-    // Sincroniza quando GastosAvistaPanel atualiza o valor na mesma aba
-    const handler = (e: Event) => {
-      setSaldoAtual((e as CustomEvent).detail.value ?? 0)
-    }
-    window.addEventListener('saldoAtualUpdated', handler)
-    return () => window.removeEventListener('saldoAtualUpdated', handler)
-  }, [storageKey])
+  const totalDespPendente = despesasPendentes.reduce((s, d) => {
+    const pago = valoresPagosLocal[`despesa:${d.id}`] ?? 0
+    return s + Math.max(0, d.valor - pago)
+  }, 0)
 
-  // Toggle de um item: atualiza estado local + salva no banco
-  const handleToggle = useCallback((key: string) => {
-    const [tipo, referenciaId] = key.split(':') as ['cartao' | 'despesa' | 'receita', string]
-    const novoEstado = !estados[key]
+  const totalFatPendente = faturasPendentes.reduce((s, f) => {
+    const pago = valoresPagosLocal[`cartao:${f.cartao_id}`] ?? 0
+    return s + Math.max(0, f.total - pago)
+  }, 0)
 
-    setEstados((prev) => ({ ...prev, [key]: novoEstado }))
-
-    startTransition(async () => {
-      const result = await toggleChecklist(mesRef, tipo, referenciaId, novoEstado)
-      if (result?.error) {
-        setEstados((prev) => ({ ...prev, [key]: !novoEstado }))
-        toast.error(result.error)
-      }
-    })
-  }, [estados, mesRef])
-
-  // ── Cálculos de projeção ──
-  // Pendentes = ainda não marcados
-  const receitasPendentes   = receitasLocal.filter((r) => !estados[`receita:${r.id}`])
-  const despesasPendentes   = despesasLocal.filter((d) => !estados[`despesa:${d.id}`])
-  const faturasPendentes    = faturas.filter((f)  => !estados[`cartao:${f.cartao_id}`])
-
-  const totalRecPendente  = receitasPendentes.reduce((s, r) => s + r.valor, 0)
-  const totalDespPendente = despesasPendentes.reduce((s, d) => s + d.valor, 0)
-  const totalFatPendente  = faturasPendentes.reduce((s, f) => s + f.total, 0)
   const totalPagarPendente = totalDespPendente + totalFatPendente
-
   const saldoProjetado = saldoAtual + totalRecPendente - totalPagarPendente
 
   // Totais gerais (para os headers de seção)
@@ -263,13 +368,17 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
 
   // Progresso
   const allKeys = [
-    ...receitasLocal.map((r) => `receita:${r.id}`),
-    ...despesasLocal.map((d) => `despesa:${d.id}`),
-    ...faturas.map((f)  => `cartao:${f.cartao_id}`),
+    ...receitasLocal.map(r => `receita:${r.id}`),
+    ...despesasLocal.map(d => `despesa:${d.id}`),
+    ...faturas.map(f  => `cartao:${f.cartao_id}`),
   ]
-  const totalItens     = allKeys.length
-  const itensConcluidos = allKeys.filter((k) => estados[k]).length
+  const totalItens      = allKeys.length
+  const itensConcluidos = allKeys.filter(k => estados[k]).length
   const pct = totalItens > 0 ? Math.round((itensConcluidos / totalItens) * 100) : 0
+
+  // Valor faltante no modal de pagamento
+  const valorPagarNum = parseFloat(valorPagarInput.replace(',', '.')) || 0
+  const restante = pagandoItem ? Math.max(0, pagandoItem.valorTotal - valorPagarNum) : 0
 
   return (
     <>
@@ -391,9 +500,10 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 itemKey={`receita:${r.id}`}
                 label={r.descricao}
                 valor={r.valor}
+                valorPago={valoresPagosLocal[`receita:${r.id}`]}
                 concluido={!!estados[`receita:${r.id}`]}
                 corValor="text-green-600"
-                onToggle={handleToggle}
+                onToggle={(key) => handleCircleClick(key, 'receita', r.id, r.descricao, r.valor)}
                 onEdit={() => abrirEdicao('receita', r)}
               />
             ))
@@ -434,9 +544,10 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 label={d.descricao}
                 sublabel={d.dia_vencimento ? `Vencimento dia ${d.dia_vencimento}` : undefined}
                 valor={d.valor}
+                valorPago={valoresPagosLocal[`despesa:${d.id}`]}
                 concluido={!!estados[`despesa:${d.id}`]}
                 corValor="text-red-600"
-                onToggle={handleToggle}
+                onToggle={(key) => handleCircleClick(key, 'despesa', d.id, d.descricao, d.valor)}
                 onEdit={() => abrirEdicao('despesa', d)}
               />
             ))
@@ -467,9 +578,10 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
                 itemKey={`cartao:${f.cartao_id}`}
                 label={`Fatura ${f.nome}`}
                 valor={f.total}
+                valorPago={valoresPagosLocal[`cartao:${f.cartao_id}`]}
                 concluido={!!estados[`cartao:${f.cartao_id}`]}
                 corValor="text-red-600"
-                onToggle={handleToggle}
+                onToggle={(key) => handleCircleClick(key, 'cartao', f.cartao_id, `Fatura ${f.nome}`, f.total)}
               />
             ))
           }
@@ -477,6 +589,60 @@ export function ChecklistPanel({ faturas, despesas, receitas, concluidos: inicia
       </div>
 
     </div> {/* fim space-y-5 */}
+
+      {/* ── Dialog de pagamento ── */}
+      <Dialog open={!!pagandoItem} onOpenChange={(open) => !open && setPagandoItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-base">Registrar pagamento</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground truncate">{pagandoItem?.label}</p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pg-valor">Valor pago (R$)</Label>
+              <Input
+                id="pg-valor"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={valorPagarInput}
+                onChange={e => setValorPagarInput(e.target.value)}
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && onConfirmarPagamento()}
+              />
+              {pagandoItem && valorPagarNum > 0 && valorPagarNum < pagandoItem.valorTotal && (
+                <p className="text-xs text-amber-600">
+                  Pagamento parcial — {formatCurrency(restante)} ficará pendente.
+                </p>
+              )}
+              {pagandoItem && valorPagarNum >= pagandoItem.valorTotal && valorPagarNum > 0 && (
+                <p className="text-xs text-green-600">Valor total coberto — item será marcado como pago. ✓</p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setPagandoItem(null)}>
+                Cancelar
+              </Button>
+              <Button type="button" className="flex-1" onClick={onConfirmarPagamento} disabled={pagando || valorPagarNum <= 0}>
+                {pagando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
+              </Button>
+            </div>
+
+            {pagandoItem && valorPagarNum !== pagandoItem.valorTotal && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline underline-offset-2 w-full text-center"
+                onClick={() => setValorPagarInput(String(pagandoItem.valorTotal).replace('.', ','))}
+              >
+                Pagar valor total ({formatCurrency(pagandoItem.valorTotal)})
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog de criação pontual ── */}
       <Dialog open={!!criarTipo} onOpenChange={(open) => !open && setCriarTipo(null)}>
