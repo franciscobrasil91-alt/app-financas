@@ -248,6 +248,36 @@ export async function atualizarLancamento(
   return { success: true }
 }
 
+// Cancela uma assinatura recorrente a partir de um mês: apaga o mês atual e todos os futuros,
+// preservando o histórico dos meses anteriores
+export async function cancelarRecorrencia(id: string, mesRefInicio: number) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: lancamento } = await supabase
+    .from('lancamentos_cartao')
+    .select('grupo_id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!lancamento?.grupo_id) return { error: 'Lançamento não encontrado' }
+
+  const { error } = await supabase
+    .from('lancamentos_cartao')
+    .delete()
+    .eq('grupo_id', lancamento.grupo_id)
+    .eq('user_id', user.id)
+    .gte('mes_referencia', mesRefInicio)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/cartao')
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
 export async function getCartoes() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

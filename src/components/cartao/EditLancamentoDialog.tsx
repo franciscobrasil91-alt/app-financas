@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Layers, RefreshCw } from 'lucide-react'
+import { Loader2, Layers, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog'
-import { atualizarLancamento } from '@/app/(dashboard)/cartao/actions'
+import { atualizarLancamento, cancelarRecorrencia } from '@/app/(dashboard)/cartao/actions'
 import type { LancamentoCartao, Categoria } from '@/lib/types'
 
 const schema = z.object({
@@ -34,6 +34,8 @@ interface EditLancamentoDialogProps {
 
 export function EditLancamentoDialog({ lancamento, categorias, onClose }: EditLancamentoDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  const [confirmarCancelamento, setConfirmarCancelamento] = useState(false)
   const isGrupo = !!lancamento && (lancamento.numero_parcelas > 1 || (lancamento as any).recorrente)
   const isRecorrente = !!(lancamento as any)?.recorrente
 
@@ -53,6 +55,20 @@ export function EditLancamentoDialog({ lancamento, categorias, onClose }: EditLa
       })
     }
   }, [lancamento, reset])
+
+  async function handleCancelarAssinatura() {
+    if (!lancamento) return
+    setCancelando(true)
+    const mesRef = (lancamento as any).mes_referencia as number
+    const result = await cancelarRecorrencia(lancamento.id, mesRef)
+    setCancelando(false)
+    if (result?.error) {
+      toast.error('Erro ao cancelar assinatura')
+    } else {
+      toast.success('Assinatura cancelada! O histórico dos meses anteriores foi preservado.')
+      onClose()
+    }
+  }
 
   async function salvar(data: FormData, atualizarGrupo: boolean) {
     if (!lancamento) return
@@ -166,6 +182,50 @@ export function EditLancamentoDialog({ lancamento, categorias, onClose }: EditLa
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Cancelar assinatura — só para recorrentes */}
+        {isRecorrente && (
+          <div className="border-t pt-4 mt-2">
+            {!confirmarCancelamento ? (
+              <button
+                type="button"
+                onClick={() => setConfirmarCancelamento(true)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Cancelar assinatura a partir deste mês
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-destructive font-medium">
+                  O histórico dos meses anteriores será preservado. Deseja cancelar esta assinatura a partir de agora?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs h-8"
+                    onClick={() => setConfirmarCancelamento(false)}
+                  >
+                    Não
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1 text-xs h-8"
+                    onClick={handleCancelarAssinatura}
+                    disabled={cancelando}
+                  >
+                    {cancelando && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    Sim, cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )
